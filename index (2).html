@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>♻️ Click & Clean Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #80deea);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .background-glow {
+      position: absolute;
+      width: 300%;
+      height: 300%;
+      background: radial-gradient(circle, rgba(255,255,255,0.2), transparent);
+      animation: moveGlow 10s linear infinite;
+      z-index: 0;
+    }
+
+    @keyframes moveGlow {
+      0% { transform: translate(0, 0); }
+      50% { transform: translate(-20%, -20%); }
+      100% { transform: translate(0, 0); }
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .login-screen, .game-screen, .leaderboard-screen {
+      z-index: 1;
+      background: rgba(255,255,255,0.95);
+      padding: 40px;
+      border-radius: 30px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.3);
+      text-align: center;
+      width: 400px;
+      animation: fadeIn 1s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      color: #00796b;
+    }
+
+    input, select, button {
+      width: 80%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 1rem;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      background-color: #00796b;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #004d40;
+    }
+
+    .info {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .bins {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 30px;
+    }
+
+    .bin {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #fff3e0;
+      border: 3px solid #ffcc80;
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.3s;
+    }
+
+    .bin:hover {
+      transform: scale(1.1);
+      background: #ffe0b2;
+    }
+
+    .game-area {
+      position: relative;
+      height: 300px;
+      background: #e1f5fe;
+      border: 2px dashed #81d4fa;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .waste {
+      width: 60px;
+      height: 60px;
+      position: absolute;
+      border-radius: 10px;
+      background-color: #aed581;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      cursor: grab;
+      transition: transform 0.2s;
+    }
+
+    .waste:active {
+      cursor: grabbing;
+    }
+
+    #leaderboardList {
+      list-style: none;
+      padding: 0;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="background-glow"></div>
+
+  <div class="login-screen">
+    <h1>♻️ Click & Clean</h1>
+    <input type="text" id="playerName" placeholder="Enter your name" />
+    <select id="difficulty">
+      <option value="easy">🟢 Easy</option>
+      <option value="medium">🟡 Medium</option>
+      <option value="hard">🔴 Hard</option>
+    </select>
+    <button id="startBtn">Start Game</button>
+  </div>
+
+  <div class="game-screen hidden">
+    <div class="info">
+      <p>👤 Player: <span id="playerDisplay"></span></p>
+      <p>⏰ Time: <span id="timer">60</span>s</p>
+      <p>⭐ Score: <span id="score">0</span></p>
+    </div>
+    <div class="bins">
+      <div class="bin" data-type="plastic">🧴 Plastic</div>
+      <div class="bin" data-type="organic">🍌 Organic</div>
+      <div class="bin" data-type="paper">📄 Paper</div>
+      <div class="bin" data-type="metal">🔩 Metal</div>
+    </div>
+    <div class="game-area" id="gameArea"></div>
+  </div>
+
+  <div class="leaderboard-screen hidden">
+    <h2>🏆 Leaderboard</h2>
+    <ul id="leaderboardList"></ul>
+    <button onclick="backToGame()">🔁 Play Again</button>
+  </div>
+
+  <script>
+    const loginScreen = document.querySelector('.login-screen');
+    const gameScreen = document.querySelector('.game-screen');
+    const leaderboardScreen = document.querySelector('.leaderboard-screen');
+    const playerDisplay = document.getElementById('playerDisplay');
+    const timerDisplay = document.getElementById('timer');
+    const scoreDisplay = document.getElementById('score');
+    const gameArea = document.getElementById('gameArea');
+    const leaderboardList = document.getElementById('leaderboardList');
+
+    let score = 0;
+    let timer = 60;
+    let playerName = '';
+
+    document.getElementById('startBtn').addEventListener('click', startGame);
+
+    function startGame() {
+      playerName = document.getElementById('playerName').value.trim();
+      if (!playerName) return alert("Please enter your name!");
+
+      loginScreen.classList.add('hidden');
+      gameScreen.classList.remove('hidden');
+      playerDisplay.textContent = playerName;
+      score = 0;
+      timer = 60;
+      updateScore();
+      startTimer();
+      spawnWaste();
+    }
+
+     function spawnWaste() {
+    const types = ['plastic', 'organic', 'paper', 'metal'];
+    const icons = {
+        plastic: ['🧴', '🥤'],   // Use an array for icons
+        organic: ['🍌', '🥗'],   // Use an array for icons
+        paper: ['📄', '📚'],     // Use an array for icons
+        metal: ['🔩', '⚙️']      // Use an array for icons
+    };
+
+    const waste = document.createElement('div');
+    const type = types[Math.floor(Math.random() * types.length)];
+    // Pick a random icon from the array corresponding to the waste type
+    const icon = icons[type][Math.floor(Math.random() * icons[type].length)];
+
+    waste.classList.add('waste');
+    waste.setAttribute('draggable', true);
+    waste.setAttribute('data-type', type);
+    waste.innerText = icon;
+
+    waste.style.top = Math.random() * 200 + 'px';
+    waste.style.left = Math.random() * 300 + 'px';
+
+    waste.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', type);
+    });
+
+    gameArea.appendChild(waste);
+    setTimeout(() => {
+        if (waste.parentElement) waste.remove();
+    }, 6000);
+
+    if (timer > 0) setTimeout(spawnWaste, 1000);
+}
+
+     document.querySelectorAll('.bin').forEach(bin => {
+  bin.addEventListener('dragover', e => e.preventDefault());
+  bin.addEventListener('drop', e => {
+    const draggedType = e.dataTransfer.getData('text/plain');
+    const correctType = bin.getAttribute('data-type');
+    const waste = document.querySelector(`.waste[data-type="${draggedType}"]`);
+
+    if (draggedType === correctType) {
+      score += 10;
+      bin.style.background = '#c8e6c9';
+
+      // Remove the waste element from the game area after it is placed in the correct bin
+      if (waste) waste.remove();
+    } else {
+      score -= 5;
+      bin.style.background = '#ffcdd2';
+    }
+
+    updateScore();
+    setTimeout(() => bin.style.background = '', 500);
+  });
+});
+
+    function updateScore() {
+      scoreDisplay.textContent = score;
+    }
+
+    function startTimer() {
+      const interval = setInterval(() => {
+        timer--;
+        timerDisplay.textContent = timer;
+        if (timer <= 0) {
+          clearInterval(interval);
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function endGame() {
+      gameScreen.classList.add('hidden');
+      leaderboardScreen.classList.remove('hidden');
+      saveScore();
+      showLeaderboard();
+    }
+
+    function saveScore() {
+      let scores = JSON.parse(localStorage.getItem('clickCleanScores')) || [];
+      scores.push({ name: playerName, score });
+      scores.sort((a, b) => b.score - a.score);
+      localStorage.setItem('clickCleanScores', JSON.stringify(scores));
+    }
+
+    function showLeaderboard() {
+      leaderboardList.innerHTML = '';
+      const scores = JSON.parse(localStorage.getItem('clickCleanScores')) || [];
+      scores.slice(0, 5).forEach((entry, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `#${i + 1} ${entry.name} - <strong>${entry.score}</strong>`;
+        leaderboardList.appendChild(li);
+      });
+    }
+
+    function backToGame() {
+      leaderboardScreen.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
